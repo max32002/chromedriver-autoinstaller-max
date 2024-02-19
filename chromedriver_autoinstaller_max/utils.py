@@ -171,21 +171,14 @@ def get_chrome_version():
             .strip()
         )
     elif platform == "win":
-        # check both of Program Files and Program Files (x86).
-        # if the version isn't found on both of them, version is an empty string.
-        chrome_dir_list = [
-            "C:\\Program Files\\Google\\Chrome\\Application",
-            "C:\\Program Files (x86)\\Google\\Chrome\\Application",
-            "D:\\Program Files\\Google\\Chrome\\Application",
-            "D:\\Program Files (x86)\\Google\\Chrome\\Application",
-            "~\\AppData\\Local\\Google\\Chrome\\Application",
-        ]
-        for chrome_dir in chrome_dir_list:
-            if chrome_dir[:1] == "~":
-                chrome_dir = os.path.abspath(os.path.expanduser(chrome_dir))
-            if os.path.exists(chrome_dir):
-                dirs = [f.name for f in os.scandir(chrome_dir) if f.is_dir() and re.match("^[0-9.]+$", f.name)]
-                version = max(dirs) if dirs else ''
+        PROGRAMFILES = f"{os.environ.get('PROGRAMW6432') or os.environ.get('PROGRAMFILES')}\\Google\\Chrome\\Application"
+        PROGRAMFILESX86 = f"{os.environ.get('PROGRAMFILES(X86)')}\\Google\\Chrome\\Application"
+        
+        path = PROGRAMFILES if os.path.exists(PROGRAMFILES) else PROGRAMFILESX86 if os.path.exists(PROGRAMFILESX86) else None
+
+        dirs = [f.name for f in os.scandir(path) if f.is_dir() and re.match("^[0-9.]+$", f.name)] if path else None
+
+        version = max(dirs) if dirs else None        
     else:
         pass
     return version
@@ -220,7 +213,7 @@ def get_major_version(version):
     """
     return version.split(".")[0]
 
-def get_last_known_good_versions():
+def get_last_known_good_versions(no_ssl=False):
     download_options = None
     version_url = "googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json"
     version_url = f"http://{version_url}" if no_ssl else f"https://{version_url}"
@@ -275,7 +268,7 @@ def get_matched_chromedriver_version(chrome_version, no_ssl=False):
 
         # get last-known-good-versions
         if download_options is None:
-            download_options = get_last_known_good_versions()
+            download_options = get_last_known_good_versions(no_ssl)
 
     # check old versions of chrome using the old system
     else:
@@ -341,7 +334,7 @@ def download_chromedriver(path: Optional[AnyStr] = None, no_ssl: bool = False, m
 
     if chrome_version is None:
         logging.debug("Chrome is not installed or not able to access")
-        download_options = get_last_known_good_versions()
+        download_options = get_last_known_good_versions(no_ssl)
         chromedriver_dir = os.path.abspath(path)
     else:
         chromedriver_version, download_options = get_matched_chromedriver_version(chrome_version, no_ssl)
